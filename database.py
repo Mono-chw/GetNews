@@ -2,7 +2,7 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Load environment variables from the config.env file
 load_dotenv('config.env')
@@ -31,7 +31,6 @@ class CryptoPanicDB:
                 INSERT INTO crypto_panic_news 
                 (title, content, source_url, source, published_at, tags, votes_positive, votes_negative)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (source_url) DO NOTHING
             """
             self.cursor.execute(query, (
                 news_data['title'],
@@ -47,6 +46,21 @@ class CryptoPanicDB:
             print("Data inserted successfully")
         except Exception as e:
             print(f"Database error: {e}")
+            self.conn.rollback()
+
+    def delete_old_entries(self):
+        print("Deleting entries older than one week...")
+        try:
+            one_week_ago = datetime.now() - timedelta(weeks=1)
+            query = """
+                DELETE FROM crypto_panic_news 
+                WHERE published_at < %s
+            """
+            self.cursor.execute(query, (one_week_ago,))
+            self.conn.commit()
+            print("Old entries deleted successfully")
+        except Exception as e:
+            print(f"Error deleting old entries: {e}")
             self.conn.rollback()
 
     def close(self):

@@ -4,9 +4,9 @@ CREATE USER mono WITH PASSWORD 'Crypto888';
 
 CREATE TABLE crypto_panic_news (
     id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
+    title TEXT,
     content TEXT,
-    source_url VARCHAR(255) UNIQUE,
+    source_url VARCHAR(255),
     source VARCHAR(50),
     published_at TIMESTAMP WITH TIME ZONE,
     tags TEXT,
