@@ -1,15 +1,23 @@
 import requests
+import sys
 import os
 import json
 from datetime import datetime, timedelta
-from database import CryptoPanicDB
 from dotenv import load_dotenv
 import schedule
 import time
 from dateutil import parser
 
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Import the send_telegram_message function
+from tg_bot.msg_fwd_bot import send_telegram_message
+
+import database
+
 # Load environment variables from the config.env file
-load_dotenv('config.env')
+load_dotenv('../config.env')
 
 # Now you can access the variables using os.getenv
 api_key = os.getenv('CRYPTOPANIC_API_KEY')
@@ -19,8 +27,7 @@ class CryptoPanicCrawler:
     def __init__(self):
         self.api_key = api_key
         self.base_url = "https://cryptopanic.com/api/v1/posts/"
-        self.db = CryptoPanicDB()
-        self.latest_timestamp = None  # Track the latest timestamp
+        self.db = database.CryptoPanicDB()
 
     def fetch_news(self, params=None):
         default_params = {
@@ -62,48 +69,27 @@ class CryptoPanicCrawler:
             except Exception as e:
                 print(f"Failed to process post: {e}")
 
-    def run(self, interval_minutes, max_iterations):
-        print("爬虫启动...")
-        iteration = 0
-        self._fetch_and_save()
-        schedule.every(interval_minutes).minutes.do(self._fetch_and_save)
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-            iteration += 1
-            if max_iterations and iteration >= max_iterations:
-                print("达到最大迭代次数，停止爬虫")
-                break
-
     def _fetch_and_save(self):
         print(f"{datetime.now()} 开始抓取数据...")
-        page = 1
-        # Calculate the date for 24 hours ago
-        one_day_ago = datetime.now() - timedelta(days=1)
-        while True:
-            params = {"filter": "hot", "page": page}
-            if self.latest_timestamp:
-                params["published_at"] = f">{self.latest_timestamp}"
-            else:
-                # Use the date for 24 hours ago as the initial filter
-                params["published_at"] = f">{one_day_ago.isoformat()}"
-            data = self.fetch_news(params=params)
-            if data and data.get('results'):
-                self.parse_news(data)
-                print(f"已保存{len(data.get('results', []))}条新数据")
-                # Update the latest timestamp
-                self.latest_timestamp = max(
-                    post['published_at'] for post in data.get('results', [])
-                )
-                page += 1
-            else:
-                print("未获取到有效数据或已到达最后一页")
-                break
+        # Calculate the date for 15 minutes ago
+        fifteen_minutes_ago = datetime.now() - timedelta(minutes=15)
+        params = {"filter": "hot", "published_at": f">{fifteen_minutes_ago.isoformat()}"}
+        data = self.fetch_news(params=params)
+        if data and data.get('results'):
+            self.parse_news(data)
+            print(f"已保存{len(data.get('results', []))}条新数据")
+        else:
+            print("未获取到有效数据")
         print("本次抓取完成\n")
+
+    def run(self):
+        self._fetch_and_save()
 
     def _insert_news(self, news_item):
         self.db.insert_news(news_item)
+        # Call the function to send the news to Telegram
+        send_telegram_message(news_item)
 
 if __name__ == "__main__":
     crawler = CryptoPanicCrawler()
-    crawler.run(15, 10)
+    crawler.run()

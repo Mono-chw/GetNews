@@ -15,6 +15,21 @@ CREATE TABLE crypto_panic_news (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE telegram_messages (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT,
+    username VARCHAR(255),
+    message_text TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE tweets (
+    id SERIAL PRIMARY KEY,
+    tweet_id BIGINT UNIQUE,
+    username VARCHAR(255),
+    text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE
+);
 
 CREATE INDEX idx_published_at ON crypto_panic_news(published_at);
 CREATE INDEX idx_source ON crypto_panic_news(source);
